@@ -1,4 +1,5 @@
 *.py[co]
+__cache__
 
 # Packages
 *.egg
