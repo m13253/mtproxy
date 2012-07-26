@@ -2,3 +2,9 @@ mtproxy
 =======
 
 A transparent download accelerator working as a proxy server
+
+Released under LGPL license.
+
+Now it cannot accelerate your downloads, but it will soon.
+
+Some source is copied from http://python-proxy.googlecode.com (which is released under MIT license), however it will be rewritten sometime.
