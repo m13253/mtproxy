@@ -17,4 +17,4 @@ def start_server(host='localhost', port=8080, supportIPv6=False, timeout=60,
         socaddr=hSocket.accept()
         handler(socaddr[0], socaddr[1], timeout).run()
 
-# vim:ts=4 sts=4 et syntax=python
+# vim: et ft=python sts=4 sw=4 ts=4

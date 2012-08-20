@@ -94,4 +94,4 @@ class ConnectionHandler(threading.Thread):
             if count==time_out_max:
                 break
 
-# vim:ts=4 sts=4 et syntax=python
+# vim: et ft=python sts=4 sw=4 ts=4

@@ -5,4 +5,4 @@ BUFLEN=8192
 VERSION='MTProxy/'+__version__
 HTTPVER='HTTP/1.1'
 
-# vim:ts=4 sts=4 et syntax=python
+# vim: et ft=python sts=4 sw=4 ts=4

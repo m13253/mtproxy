@@ -52,4 +52,4 @@ class TCacheControl:
 
 CacheControl=TCacheControl()
 
-# vim:ts=4 sts=4 et syntax=python
+# vim: et ft=python sts=4 sw=4 ts=4
