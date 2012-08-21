@@ -23,7 +23,7 @@ class ConnectionHandler(threading.Thread):
                 self.senderr(400, 'Not Found')
             if self.client[0]:
                 self.client[0].close()
-            sys.stderr.write('%s:%d: Closed connection.\n' % (self.client[1][0], self.client[1][1]))
+            sys.stderr.write('%s:%d: Closed connection.\n' % self.client[1])
         except socket.error:
             self.senderr(503, 'Service Unavailable')
         except KeyboardInterrupt:
@@ -111,6 +111,7 @@ class ConnectionHandler(threading.Thread):
                         pass
                 self.server[0].close()
                 self.server[0]=None
+                sys.stderr.write('%s:%d: Closed connection.\n' % self.server[1])
         except socket.error:
             pass
         try:
@@ -122,6 +123,7 @@ class ConnectionHandler(threading.Thread):
                 self.client[2]=b''
                 self.client[0].close()
                 self.client[0]=None
+                sys.stderr.write('%s:%d: Closed connection.\n' % self.client[1])
         except socket.error:
             pass
 
