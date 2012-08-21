@@ -2,96 +2,90 @@
 
 import pdb
 
-import socket, threading, select, os, sys
+import socket, threading, select, os, sys, re
 import config
 
 class ConnectionHandler(threading.Thread):
-    def __init__(self, client_addr):
+    def __init__(self, client, client_addr):
         threading.Thread.__init__(self)
         self.client=client
-        self.client_buffer=''
+        self.client_addr=client_addr
+        self.client_buffer=b''
         self.server=None
-        self.address=address
-        self.timeout=timeout
+        self.server_buffer=b''
 
     def run(self):
-        self.method, self.path, self.protocol=self.get_base_header()
-        if self.method=='GET':
-            self.method_GET()
-        elif self.method=='CONNECT':
-            self.method_CONNECT()
-        else:
-            self.method_others()
-        self.client.close()
-        if self.server:
-            self.server.close()
+        try:
+            method, path, version=self.parsehead()
+            params=self.parseparam()
+            print(method, path, version, params)
+            self.client.close()
+        except socket.error:
+            pass
 
-    def get_base_header(self):
+    def recv(self):
+        try:
+            self.client_buffer+=self.client.recv(config.buffer_length)
+        except socket.error as e:
+            if e.errno not in {socket.EAGAIN, socket.EWOULDBLOCK}:
+                raise e
+
+    def parsehead(self):
         while True:
-            self.client_buffer+=self.client.recv(ver.BUFLEN).decode()
-            end=self.client_buffer.find('\n')
-            if end!=-1:
+            idx=self.client_buffer.find(b'\n')
+            if idx==-1:
+                self.recv()
+            else:
+                headline, self.client_buffer=self.client_buffer.split(b'\n', 1)
                 break
-        sys.stderr.write('%s\n' % self.client_buffer[:end])
-        data=(self.client_buffer[:end+1]).split()
-        self.client_buffer=self.client_buffer[end+1:]
-        return data
-
-    def method_GET(self):
-        self.method_others()
-
-    def method_CONNECT(self):
-        self._connect_target(self.path)
-        self.client.send(("%s 200 Connection established\nX-Proxy-agent: %s\n\n" % (ver.HTTPVER, ver.VERSION)).encode())
-        self.client_buffer=''
-        self._read_write()
-
-    def method_others(self):
-        self.path=self.path[7:]
-        i=self.path.find('/')
-        if i!=-1:
-            host=self.path[:i]
-            path=self.path[i:]
+        headline=headline.rstrip(b'\r').decode('utf-8', 'replace')
+        spaces=len(re.findall(' ', headline))
+        if spaces==0:
+            self.senderr(400, 'Bad Request')
+            return None, None, None
+        elif spaces==1:
+            method, path=headline.split(' ', 1)
+            return method, path, 'HTTP/1.0'
         else:
-            host=self.path
-            path='/'
-        self._connect_target(host)
-        self.server.send(('%s %s %s\n%s' % (self.method, path, self.protocol, self.client_buffer)).encode())
-        self.client_buffer=''
-        self._read_write()
+            method, pathver=headline.split(' ', 1)
+            path=re.findall('^.*(?= )', pathver)[0]
+            clientver=pathver[len(path)+1:]
+            return method, path, clientver
 
-    def _connect_target(self, host):
-        i=host.find(':')
-        if i!=-1:
-            port=int(host[i+1:])
-            host=host[:i]
-        else:
-            port=80
-        (soc_family, _, _, _, address)=socket.getaddrinfo(host, port)[0]
-        self.server=socket.socket(soc_family)
-        self.server.connect(address)
-
-    def _read_write(self):
-        time_out_max=self.timeout/3
-#        pdb.set_trace()
-        socs=[self.client, self.server]
-        count=0
+    def parseparam(self):
+        params={}
         while True:
-            count+=1
-            (recv, _, error)=select.select(socs, [], socs, 3)
-            if error:
+            while True:
+                idx=self.client_buffer.find(b'\n')
+                if idx==-1:
+                    self.recv()
+                else:
+                    rline, self.client_buffer=self.client_buffer.split(b'\n', 1)
+                    break
+            line=rline.rstrip(b'\r').decode('utf-8', 'replace')
+            if line=='':
                 break
-            if recv:
-                for soc_in in recv:
-                    data=soc_in.recv(ver.BUFLEN)
-                    if soc_in is self.client.fileno():
-                        soc_out=self.server
-                    else:
-                        out=self.client
-                    if data:
-                        out.send(data)
-                        count=0
-            if count==time_out_max:
+            values=line.split(': ', 1)
+            if len(values)>1:
+                params[values[0]]=values[1]
+            else:
+                self.client_buffer=rline+self.client_buffer
                 break
+        return params
+
+    def senderr(self, number, desc, httpver='HTTP/1.1'):
+        try:
+            if self.server:
+                self.server.close()
+                self.server=None
+        except socket.error:
+            pass
+        try:
+            if self.client:
+                self.client.sendall('%s %s %s\r\nConnection: close\r\n\r\n' % (httpver, number, desc))
+                self.client.close()
+                self.client=None
+        except socket.error:
+            pass
 
 # vim: et ft=python sts=4 sw=4 ts=4
