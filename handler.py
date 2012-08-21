@@ -3,10 +3,10 @@
 import pdb
 
 import socket, threading, select, os, sys
-import ver
+import config
 
 class ConnectionHandler(threading.Thread):
-    def __init__(self, client, address, timeout):
+    def __init__(self, client_addr):
         threading.Thread.__init__(self)
         self.client=client
         self.client_buffer=''

@@ -1,20 +1,16 @@
 #!/usr/bin/env python
 
 import socket, threading, sys
-import handler
+import config, server, handler
 
-def start_server(host='localhost', port=8080, supportIPv6=False, timeout=60,
-        handler=handler.ConnectionHandler):
-    if supportIPv6:
-        socketType=socket.AF_INET6
-    else:
-        socketType=socket.AF_INET
-    hSocket=socket.socket(socketType)
-    hSocket.bind((host, port))
-    sys.stderr.write("Service started on %s:%d.\n" % (host, port))
-    hSocket.listen(0)
-    while True:
-        socaddr=hSocket.accept()
-        handler(socaddr[0], socaddr[1], timeout).run()
+quiting=False
+threads=[]
+
+def start_server():
+    main_server=server.MTServer((config.listen_on, config.port), handler.ConnectionHandler)
+    try:
+        main_server.start()
+    except KeyboardInterrupt:
+        quiting=True
 
 # vim: et ft=python sts=4 sw=4 ts=4
