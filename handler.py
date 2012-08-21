@@ -98,7 +98,7 @@ class ConnectionHandler(threading.Thread):
             else:
                 dest=re.findall('^.*(?=:)', destport)[0]
                 port=destport[len(dest)+1:]
-        sys.stderr.write('[%s]:%s: Fetching %s.\n' % (dest, port, path))
+        sys.stderr.write('[%s]:%s: Fetching %s\n' % (dest, port, path))
         try:
             self.server[1]=(dest, int(port))
             if self.server[1][1] not in range(1, 65535):
