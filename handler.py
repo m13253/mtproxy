@@ -70,7 +70,7 @@ class ConnectionHandler(threading.Thread):
         self.copysockets(self.client, self.server)
 
     def other_methods(self, method, destportpath, http_version, params):
-        if not destportpath.startswith('http:'):
+        if destportpath[:5].lower()!='http:':
             self.senderr(400, 'Bad Request')
             return
         destportpath=destportpath[5:].lstrip('/')
