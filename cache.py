@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import subprocess, os, pickle, threading, sys, collections
+import collections, os, pickle, sys, subprocess, threading
 
 class TCacheControl:
     def __init__(self, location='/tmp/mtproxy', size=5242880, item=256):

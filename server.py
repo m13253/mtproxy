@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import errno, socket, threading, sys
-import main, handler
+import errno, socket, sys, threading
+import main, config, handler
 
 class MTServer():
     def __init__(self, listen_addr, connhandler):

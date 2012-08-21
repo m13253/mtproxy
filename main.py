@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import socket, threading, sys
-import config, server, handler
+import socket, sys, threading
+import config, handler, server
 
 quiting=False
 threads=[]

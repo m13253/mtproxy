@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-import pdb
-
-import socket, threading, select, sys, re
+import re, select, socket, sys, threading
 import config
 
 class ConnectionHandler(threading.Thread):
