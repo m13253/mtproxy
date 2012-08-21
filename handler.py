@@ -30,22 +30,29 @@ class ConnectionHandler(threading.Thread):
             self.senderr(503, 'Service Unavailable')
 
     def connect(self, destport, http_version):
-        if destport.find(':')==-1:
-            dest=destport
-            port=80
+        if destport.startswith('[') and destport.find(']')!=-1:
+            isIPv4=False
+            dest=re.findall('(?<=\[).*(?=\])', destport)[0]
+            port=destport[len(dest)+3:]
+            if not port:
+                port=80
         else:
-            dest=re.findall('^.*(?=:)', destport)[0]
-            port=destport[len(dest)+1:]
-        if dest.startswith('[') and dest.endswith(']'):
-            dest=dest[1:-1]
+            isIPv4=True
+            if destport.find(':')==-1:
+                dest=destport
+                port=80
+            else:
+                dest=re.findall('^.*(?=:)', destport)[0]
+                port=destport[len(dest)+1:]
+        sys.stderr.write('[%s]:%s: Connecting.\n' % (dest, port))
         try:
             self.server[1]=(dest, int(port))
-            if port not in range(1, 65535):
+            if self.server[1][1] not in range(1, 65535):
                 raise ValueError
         except ValueError:
             self.senderr(400, 'Bad Request')
             return
-        self.server[0]=socket.socket()
+        self.server[0]=socket.socket(socket.AF_INET if isIPv4 else socket.AF_INET6)
         try:
             self.server[0].connect(self.server[1])
             self.client[0].sendall(('%s 200 Connection Established\r\nX-Proxy-agent: %s\r\n\r\n' % (http_version, config.proxy_agent)).encode('utf-8', 'replace'))
