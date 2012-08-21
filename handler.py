@@ -2,41 +2,42 @@
 
 import pdb
 
-import socket, threading, select, os, sys, re
+import socket, threading, select, sys, re
 import config
 
 class ConnectionHandler(threading.Thread):
-    def __init__(self, client, client_addr):
+    def __init__(self, client_sock, client_addr):
         threading.Thread.__init__(self)
-        self.client=client
-        self.client_addr=client_addr
-        self.client_buffer=b''
-        self.server=None
-        self.server_buffer=b''
+        self.client=[client_sock, client_addr, b'']
+        self.server=[None, None, b'']
 
     def run(self):
         try:
-            method, path, version=self.parsehead()
-            params=self.parseparam()
-            print(method, path, version, params)
-            self.client.close()
+            method, path, version=self.parsehead(self.client)
+            sys.stderr.write('%s:%d: %s %s\n' % (self.client[1][0], self.client[1][1], method, path))
+            params=self.parseparam(self.client)
+            if self.client[0]:
+                self.client[0].close()
         except socket.error:
-            pass
+            self.senderr(503, 'Service Unvailable')
+        except KeyboardInterrupt:
+            self.senderr(503, 'Service Unvailable')
 
-    def recv(self):
-        try:
-            self.client_buffer+=self.client.recv(config.buffer_length)
-        except socket.error as e:
-            if e.errno not in {socket.EAGAIN, socket.EWOULDBLOCK}:
-                raise e
+    def recv(self, peer):
+        if peer[0]:
+            try:
+                peer[2]+=peer[0].recv(config.buffer_length)
+            except socket.error as e:
+                if e.errno not in {socket.EAGAIN, socket.EWOULDBLOCK}:
+                    raise e
 
-    def parsehead(self):
-        while True:
-            idx=self.client_buffer.find(b'\n')
+    def parsehead(self, peer):
+        while peer[0]:
+            idx=peer[2].find(b'\n')
             if idx==-1:
-                self.recv()
+                self.recv(peer)
             else:
-                headline, self.client_buffer=self.client_buffer.split(b'\n', 1)
+                headline, peer[2]=peer[2].split(b'\n', 1)
                 break
         headline=headline.rstrip(b'\r').decode('utf-8', 'replace')
         spaces=len(re.findall(' ', headline))
@@ -52,15 +53,15 @@ class ConnectionHandler(threading.Thread):
             clientver=pathver[len(path)+1:]
             return method, path, clientver
 
-    def parseparam(self):
+    def parseparam(self, peer):
         params={}
-        while True:
-            while True:
-                idx=self.client_buffer.find(b'\n')
+        while peer[0]:
+            while peer[0]:
+                idx=peer[2].find(b'\n')
                 if idx==-1:
-                    self.recv()
+                    self.recv(peer)
                 else:
-                    rline, self.client_buffer=self.client_buffer.split(b'\n', 1)
+                    rline, peer[2]=peer[2].split(b'\n', 1)
                     break
             line=rline.rstrip(b'\r').decode('utf-8', 'replace')
             if line=='':
@@ -69,22 +70,32 @@ class ConnectionHandler(threading.Thread):
             if len(values)>1:
                 params[values[0]]=values[1]
             else:
-                self.client_buffer=rline+self.client_buffer
+                peer[2]=rline+peer[2]
                 break
         return params
 
     def senderr(self, number, desc, httpver='HTTP/1.1'):
         try:
-            if self.server:
-                self.server.close()
-                self.server=None
+            if self.server[0]:
+                if self.server[2]:
+                    try:
+                        self.server[0].sendall(self.server[2])
+                        self.server[2]=b''
+                    except socket.error:
+                        pass
+                self.server[0].close()
+                self.server[0]=None
         except socket.error:
             pass
         try:
-            if self.client:
-                self.client.sendall('%s %s %s\r\nConnection: close\r\n\r\n' % (httpver, number, desc))
-                self.client.close()
-                self.client=None
+            if self.client[0]:
+                try:
+                    self.client[0].sendall(('%s %s %s\r\nConnection: close\r\n\r\n' % (httpver, number, desc)).encode('utf-8', 'replace'))
+                except socket.error:
+                    pass
+                self.client[2]=b''
+                self.client[0].close()
+                self.client[0]=None
         except socket.error:
             pass
 

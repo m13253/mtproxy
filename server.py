@@ -24,6 +24,7 @@ class MTServer():
         try:
             while True:
                 client=self.sock.accept()
+                client[0].settimeout(config.timeout)
                 thehandler=self.connhandler(client[0], client[1])
                 thehandler.start()
         except KeyboardInterrupt:
