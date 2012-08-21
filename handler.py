@@ -138,16 +138,19 @@ class ConnectionHandler(threading.Thread):
             peer2[2]=b''
         socks=[peer1[0], peer2[0]]
         while True:
-            (rlist, _, xlist)=select.select(socks, [], socks)
-            if xlist:
+            try:
+                (rlist, _, xlist)=select.select(socks, [], socks)
+                if xlist:
+                    break
+                elif rlist:
+                    for i in rlist:
+                        data=i.recv(config.buffer_length)
+                        if i is peer1[0]:
+                            peer2[0].sendall(data)
+                        elif i is peer2[0]:
+                            peer1[0].sendall(data)
+            except socket.error as e:
                 break
-            elif rlist:
-                for i in rlist:
-                    data=i.recv(config.buffer_length)
-                    if i is peer1[0]:
-                        peer2[0].sendall(data)
-                    elif i is peer2[0]:
-                        peer1[0].sendall(data)
         peer1[0].close()
         peer1[0]=None
         peer2[0].close()
