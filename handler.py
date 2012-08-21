@@ -79,8 +79,7 @@ class ConnectionHandler(threading.Thread):
             return
         if destportpath.find('/')!=-1:
             destport, path=destportpath.split('/', 1)
-            if not path:
-                path='/'
+            path='/'+path
         else:
             destport=destportpath
             path='/'
