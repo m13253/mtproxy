@@ -13,13 +13,41 @@ class ConnectionHandler(threading.Thread):
         try:
             method, path, version=self.parsehead(self.client)
             sys.stderr.write('%s:%d: %s %s\n' % (self.client[1][0], self.client[1][1], method, path))
-            params=self.parseparam(self.client)
+            if method=='CONNECT':
+                self.connect(path, version)
+            elif method=='GET':
+                params=self.parseparam(self.client)
+                self.senderr(404, 'Not Found')
+            else:
+                params=self.parseparam(self.client)
+                self.senderr(400, 'Not Found')
             if self.client[0]:
                 self.client[0].close()
+            sys.stderr.write('%s:%d: Closed connection.\n' % (self.client[1][0], self.client[1][1]))
         except socket.error:
-            self.senderr(503, 'Service Unvailable')
+            self.senderr(503, 'Service Unavailable')
         except KeyboardInterrupt:
-            self.senderr(503, 'Service Unvailable')
+            self.senderr(503, 'Service Unavailable')
+
+    def connect(self, dest, http_version):
+        if dest.find(':')==-1:
+            port=80
+        else:
+            port=re.findall('(?<=:)(.*?)$', dest)[0]
+            dest=re.findall('^.*(?=:)', dest)[0]
+        try:
+            self.server[1]=(dest, int(port))
+        except ValueError:
+            self.senderr(400, 'Bad Request')
+            return
+        self.server[0]=socket.socket()
+        try:
+            self.server[0].connect(self.server[1])
+            self.client[0].sendall(('%s 200 Connection Established\r\nX-Proxy-agent: %s\r\n\r\n' % (http_version, config.proxy_agent)).encode('utf-8', 'replace'))
+        except socket.error:
+            self.senderr(503, 'Service Unavailable')
+            return
+        self.copysockets(self.client, self.server)
 
     def recv(self, peer):
         if peer[0]:
@@ -96,5 +124,31 @@ class ConnectionHandler(threading.Thread):
                 self.client[0]=None
         except socket.error:
             pass
+
+    def copysockets(self, peer1, peer2):
+        if not peer1[0] or not peer2[0]:
+            raise socket.error
+        if peer1[2]:
+            peer2[0].sendall(peer1[2])
+            peer1[2]=b''
+        if peer2[2]:
+            peer1[0].sendall(peer2[2])
+            peer2[2]=b''
+        socks=[peer1[0], peer2[0]]
+        while True:
+            (rlist, _, xlist)=select.select(socks, [], socks)
+            if xlist:
+                break
+            elif rlist:
+                for i in rlist:
+                    data=i.recv(config.buffer_length)
+                    if i is peer1[0]:
+                        peer2[0].sendall(data)
+                    elif i is peer2[0]:
+                        peer1[0].sendall(data)
+        peer1[0].close()
+        peer1[0]=None
+        peer2[0].close()
+        peer2[0]=None
 
 # vim: et ft=python sts=4 sw=4 ts=4
