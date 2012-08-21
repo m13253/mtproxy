@@ -29,14 +29,19 @@ class ConnectionHandler(threading.Thread):
         except KeyboardInterrupt:
             self.senderr(503, 'Service Unavailable')
 
-    def connect(self, dest, http_version):
-        if dest.find(':')==-1:
+    def connect(self, destport, http_version):
+        if destport.find(':')==-1:
+            dest=destport
             port=80
         else:
-            port=re.findall('(?<=:)(.*?)$', dest)[0]
-            dest=re.findall('^.*(?=:)', dest)[0]
+            dest=re.findall('^.*(?=:)', destport)[0]
+            port=destport[len(dest)+1:]
+        if dest.startswith('[') and dest.endswith(']'):
+            dest=dest[1:-1]
         try:
             self.server[1]=(dest, int(port))
+            if port not in range(1, 65535):
+                raise ValueError
         except ValueError:
             self.senderr(400, 'Bad Request')
             return
